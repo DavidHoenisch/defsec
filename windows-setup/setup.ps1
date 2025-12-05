@@ -16,23 +16,23 @@ function Wait-ForVMReady {
         [int]$maxWaitSeconds = 600,  # Increased timeout for resource contention
         [int]$checkIntervalSeconds = 15
     )
-    
+
     Write-Host "Waiting for $vmName to be ready..." -ForegroundColor Yellow
     $elapsed = 0
     $lastState = ""
-    
+
     while ($elapsed -lt $maxWaitSeconds) {
         try {
             # Check if VM is running
             $vmInfo = multipass info $vmName --format json | ConvertFrom-Json
             $vmState = $vmInfo.info.$vmName.state
-            
+
             # Show state changes
             if ($vmState -ne $lastState) {
                 Write-Host "  $vmName state changed: $lastState -> $vmState" -ForegroundColor Cyan
                 $lastState = $vmState
             }
-            
+
             if ($vmState -eq "Running") {
                 # Try a simple command to see if VM is responsive
                 Write-Host "  Testing $vmName responsiveness..." -ForegroundColor Gray
@@ -49,7 +49,7 @@ function Wait-ForVMReady {
                 Write-Host "  $vmName is stopped, attempting to start..." -ForegroundColor Yellow
                 multipass start $vmName
             }
-            
+
             Start-Sleep -Seconds $checkIntervalSeconds
             $elapsed += $checkIntervalSeconds
         }
@@ -59,7 +59,7 @@ function Wait-ForVMReady {
             $elapsed += $checkIntervalSeconds
         }
     }
-    
+
     Write-Host "[!] Timeout waiting for $vmName to be ready after $maxWaitSeconds seconds" -ForegroundColor Red
     Write-Host "Diagnostic information:" -ForegroundColor Yellow
     try {
@@ -78,12 +78,12 @@ function Invoke-MultipassCommand {
         [int]$maxRetries = 3,
         [int]$retryDelaySeconds = 5
     )
-    
+
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         try {
             Write-Host "  Executing on $vmName (attempt $attempt/$maxRetries): $command" -ForegroundColor Gray
             $result = multipass exec $vmName -- $command
-            
+
             if ($LASTEXITCODE -eq 0) {
                 return $result
             } else {
@@ -102,7 +102,7 @@ function Invoke-MultipassCommand {
             }
         }
     }
-    
+
     Write-Host "[!] Command failed after $maxRetries attempts: $command" -ForegroundColor Red
     return $null
 }
@@ -163,7 +163,7 @@ if (Get-Command "VBoxManage" -ErrorAction SilentlyContinue) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] VirtualBox installation failed. Trying alternative method..." -ForegroundColor Yellow
             # Try downloading and installing directly
-            $vboxUrl = "https://download.virtualbox.org/virtualbox/7.0.14/VirtualBox-7.0.14-161095-Win.exe"
+            $vboxUrl = "https://download.virtualbox.org/virtualbox/7.1.10/VirtualBox-7.1.10-169112-Win.exe"
             $vboxInstaller = "$env:TEMP\VirtualBox-installer.exe"
             Write-Host "Downloading VirtualBox directly..." -ForegroundColor Yellow
             Invoke-WebRequest -Uri $vboxUrl -OutFile $vboxInstaller
@@ -197,10 +197,10 @@ if (Get-Command multipass -ErrorAction SilentlyContinue) {
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Multipass installation via Chocolatey failed. Trying direct download..." -ForegroundColor Yellow
-            $multipassUrl = "https://github.com/canonical/multipass/releases/latest/download/multipass-1.13.1+win-win64.exe"
-            $multipassInstaller = "$env:TEMP\multipass-installer.exe"
+            $multipassUrl = "https://github.com/canonical/multipass/releases/download/v1.15.1/multipass-1.15.1+win-win64.msi"
+            $multipassInstaller = "$env:TEMP\multipass-installer.msi"
             Invoke-WebRequest -Uri $multipassUrl -OutFile $multipassInstaller
-            Start-Process -FilePath $multipassInstaller -ArgumentList "/S" -Wait
+            Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$multipassInstaller`" /passive" -Wait
             Remove-Item $multipassInstaller -Force
         }
         $multipassInstalled = $true
@@ -326,7 +326,7 @@ foreach ($name in $newMachines) {
         multipass launch --cpus 2 --memory 2G --name $name 24.04 --disk 20GB
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✔ Successfully launched $name" -ForegroundColor Green
-            
+
             # Wait for VM to be fully ready before continuing
             if (-not (Wait-ForVMReady -vmName $name -maxWaitSeconds 300)) {
                 Write-Host "[!] $name failed to become ready within timeout period" -ForegroundColor Red
@@ -356,7 +356,7 @@ Now I will check if each VM can reach the internet by pinging 1.1.1.1...
 foreach ($name in $newMachines) {
     Write-Host "`nChecking network for $name..." -ForegroundColor Yellow
     $pingResult = Invoke-MultipassCommand -vmName $name -command "ping -c 3 1.1.1.1" -maxRetries 3 -retryDelaySeconds 10
-    
+
     if ($pingResult -ne $null) {
         Write-Host "✔ Network check passed for $name" -ForegroundColor Green
     } else {
