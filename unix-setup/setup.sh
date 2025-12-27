@@ -289,8 +289,6 @@ handle_apparmor_arch() {
         return 0
     fi
 
-fi
-
 sleep 10
 
 cat << EOF
