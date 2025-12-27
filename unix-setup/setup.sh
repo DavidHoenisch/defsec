@@ -670,13 +670,25 @@ create_vms() {
 
 test_vm_connectivity() {
     log_step "Testing VM network connectivity..."
-    
+
     for vm_name in "${VM_NAMES[@]}"; do
         log_info "Testing connectivity for: $vm_name"
-        
-        if multipass exec "$vm_name" -- ping -c 3 1.1.1.1 >/dev/null 2>&1; then
-            log_success "Network connectivity OK for: $vm_name"
-        else
+
+        local max_attempts=5
+        local attempt=0
+
+        while [ $attempt -lt $max_attempts ]; do
+            if multipass exec "$vm_name" -- ping -c 1 1.1.1.1 >/dev/null 2>&1; then
+                log_success "Network connectivity OK for: $vm_name"
+                break
+            else
+                log_info "Waiting for network connectivity... (attempt $((attempt + 1))/$max_attempts)"
+                sleep 5
+                ((attempt++))
+            fi
+        done
+
+        if [ $attempt -eq $max_attempts ]; then
             error_exit "Network connectivity test failed for VM: $vm_name"
         fi
     done
