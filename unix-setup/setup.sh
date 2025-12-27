@@ -674,29 +674,10 @@ test_vm_connectivity() {
     for vm_name in "${VM_NAMES[@]}"; do
         log_info "Testing connectivity for: $vm_name"
 
-        # First, ensure the VM is running
-        log_info "Checking VM status..."
-        local vm_state
-        local status_attempts=10
-        local status_attempt=0
+        # Give the VM extra time to fully initialize
+        sleep 10
 
-        while [ $status_attempt -lt $status_attempts ]; do
-            vm_state=$(multipass list --format json 2>/dev/null | jq -r ".list[] | select(.name == \"$vm_name\") | .state" 2>/dev/null || echo "unknown")
-            if [[ "$vm_state" == "Running" ]]; then
-                log_info "VM $vm_name is running"
-                break
-            else
-                log_info "VM $vm_name state: $vm_state, waiting... (attempt $((status_attempt + 1))/$status_attempts)"
-                sleep 5
-                ((status_attempt++))
-            fi
-        done
-
-        if [[ "$vm_state" != "Running" ]]; then
-            error_exit "VM $vm_name failed to start properly"
-        fi
-
-        # Now test connectivity
+        # Test connectivity with retries
         local max_attempts=5
         local attempt=0
 
